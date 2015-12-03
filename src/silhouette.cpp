@@ -12,11 +12,16 @@
 #include "grid.h"
 #include <set>
 
+#include <queue>
+#include <list>
+
 
 using namespace std;
 
+const int GRAY_COLOR = 3355443;     //  to determine is pixel black
+const double LIMIT = 0.01;          //
 
-
+//  storage for pixel coordinates
 class sPoint {
     public :
         sPoint(){}
@@ -26,16 +31,10 @@ class sPoint {
         }
         double getX() {
             return x;
-        };
+        }
         double getY() {
             return y;
         }
-        bool operator < (const sPoint &point) const {
-            return (point.y < y) || (point.x < x) ;
-        }
-//        ~sPoint() {
-//            delete this;
-//        }
 
     private:
         double x;
@@ -43,132 +42,74 @@ class sPoint {
 };
 
 
-void printset(set< set<sPoint>* > silhouettes, GBufferedImage* image) {
-    int i = 0;
-    long colorset[4] = {0x0000ff, 0xFF0000, 0x00FF00, 0xffff00};
-    for (set<sPoint>* set : silhouettes) {
-        cout << "count = " << set->size() << endl;
-        long color = colorset[i++ % 4];
-        for (sPoint p : *set) {
-            image->setRGB(p.getX(), p.getY(), color);
-        }
-        pause(200);
-    }
-    cout << endl;
-}
+typedef list< Vector<sPoint> > silhouettes;
+typedef Vector<sPoint> silhouette;
 
+/**
+ * @brief       check point color
+ * @param       image
+ * @param x     coordinates
+ * @param y     coordinates
+ * @return true if point is black
+ */
 bool isBlack(GBufferedImage* image, double x, double y) {
     if (image->inBounds(x, y)) {
-        return image->getRGB(x, y) < 3355443;
+        return image->getRGB(x, y) < GRAY_COLOR;
     }
 
     return false;
 }
 
-void mergeSets(set< set<sPoint>* >& sets, set< set<sPoint>* >& mainset) {
+/**
+ * @brief               groupings nearest points in one set
+ * @param p             point
+ * @param setsOfPoints  store found sets of points
+ * @param grid
+ */
+void checkPoint(sPoint p, silhouettes& setsOfPoints, Grid<bool>& grid ) {
+    queue<sPoint> q;
+    q.push(p);
+    silhouette set;
 
-    ////            cout << "mainset.size = " << mainset.size() << endl;
-    ////            cout << "sets.size = " << sets.size() << endl;
-    ////            pause(1000);
-                set<sPoint>* sFirst = new set<sPoint>;
-                for (set<sPoint>* s : sets) {
-                    sFirst->insert(s->begin(), s->end());
-//                    cout << "ms s.size = " << s->size() << endl;
-//                    cout << "ms sFirst.size = " << sFirst->size() << endl;
-                    mainset.erase(s);
-                    delete s;
-//                    image->setRGB(p.getX(), p.getY(), 0xffbb66);
-                    cout << "--mainset.size = " << mainset.size() << endl;
+    while (!q.empty()) {
+        sPoint currentPoint = q.front();
+        q.pop();
+        //  detour around the current point
+        for (int col = currentPoint.getX() - 1; col <= currentPoint.getX() + 1; col++) {
+            for (int row = currentPoint.getY() - 1; row <= currentPoint.getY() + 1; row++) {
+                if (grid.inBounds(row, col) && grid[row][col] == 1) {
+                    sPoint newPoint(col, row);
+                    q.push(newPoint);
+                    grid[row][col] = 0;
+                    set.push_back(newPoint);
                 }
-                mainset.insert(sFirst);
-//                cout << "sFirst = " << sFirst << endl;
-//                cout << "f mainset.size = " << mainset.size() << endl;
-}
-
-void checkPoint(sPoint p, set< set<sPoint>* >& mainset, Grid<bool>& grid, GBufferedImage* image ) {
-
-    set< set<sPoint>* > sets;
-
-
-//    cout << endl << "s mainset.size = " << mainset.size() << endl;
-//    cout << "s sets.size = " << sets.size() << endl;
-
-    for (int dx = -1; dx < 1; dx++) {
-        for (int dy = -1; dy <= 1; dy++) {
-            if ((dx == 0 && dy == 0) || (dx == 0 && dy == 1)) {
-                continue;
-            }
-            double findX = p.getX() + dx;
-            double findY = p.getY() + dy;
-
-//            cout << findX << " - " << findY << endl;
-
-
-            if (grid.inBounds(findY, findX) && grid[findY][findX] == 1) {
-                sPoint pt(findX, findY);
-//                cout << "x = " << findX << ", y = " << findY << endl;
-
-
-//                image->setRGB(findX, findY, 0x00ff00);
-
-                for (set<sPoint>* sl : mainset) {
-//                    cout << sl << endl;
-                    cout << "sl size " << sl->size() << endl;
-//                    cout << "for st sets.size = " << sets.size() << endl;
-                    if (sl->find(pt) == sl->end()) {
-//                        cout << "sl size" << sl->size() << endl;
-                        if (sets.empty()) {
-                            sl->insert(p);
-                            sets.insert(sl);
-                        } else {
-                            if (sets.find(sl) == sets.end()) {
-//                                image->setRGB(findX, findY, 0x00ff00);
-                                sets.insert(sl);
-                            }
-                        }
-//                        sl->insert(p);
-//                        sets.insert(sl);
-                    }
-//                    cout << "for end sets.size = " << sets.size() << endl;
-                }
-//                pause(50);
-                image->setRGB(p.getX(), p.getY(), 0xcccccc);
-//                image->setRGB(findX, findY, 0xcccccc);
             }
         }
     }
-
-    for ( set<sPoint>* s1 : sets) {
-        cout << "s1 = " << s1 << endl;
-    }
-
-    cout << endl;
-    cout << "mainset.size = " << mainset.size() << endl;
-    cout << "sets.size = " << sets.size() << endl;
-//    cout << "sets = " << sets << endl;
-
-    if (!sets.empty()) {
-        if (sets.size() > 1) {
-            mergeSets(sets, mainset);
-        }
-    } else {
-        set<sPoint>* silhouette = new set<sPoint>;
-        image->setRGB(p.getX(), p.getY(), 0xff0000);
-        silhouette->insert(p);
-        mainset.insert(silhouette);
-//        pause(50);
-    }
+    setsOfPoints.push_back(set);
 }
 
-int main() {
-    GWindow gw;
+/**
+ * @brief processImage
+ * @param gw        reference to GWindow object
+ * @param fileName  the name of the image file
+ * @return          a pointer to the GBufferedImage object
+ */
+GBufferedImage* processImage (GWindow& gw, string fileName) {
     GBufferedImage* image = new GBufferedImage;
-//    image->load("images/silhouette3.jpg");
-    image->load("images/test1.jpg");
+    image->load(fileName);
     gw.setCanvasSize(image->getWidth(), image->getHeight());
     gw.add(image);
 
-    Grid<bool> grid(image->getHeight(), image->getWidth(), 0);
+    return image;
+}
+
+/**
+ * @brief filling a grid from image. black pixel is 1, white - 0
+ * @param grid
+ * @param image
+ */
+void fillGrid(Grid<bool>& grid, GBufferedImage* image) {
     for (double row = 0; row < image->getHeight(); ++row) {
         for (double col = 0; col < image->getWidth(); ++col) {
             if (isBlack(image, col, row)) {
@@ -176,27 +117,52 @@ int main() {
             }
         }
     }
+}
 
-    set< set<sPoint>* > mainset;
+/**
+ * @brief bypassing all the points of the grid and union of points in sets
+ * @param grid
+ * @param setsOfPoints
+ */
+void groupPoints(Grid<bool>& grid, silhouettes& setsOfPoints) {
     for (double col = 0; col < grid.width(); ++col) {
         for (double row = 0; row < grid.height(); ++row) {
             if (grid[row][col] == 1) {
                 sPoint p(col, row);
-                checkPoint(p, mainset, grid, image);
+                checkPoint(p, setsOfPoints, grid);
             }
         }
     }
+}
 
-//    set<sPoint>* set1 = mainset.first();
-//    for (set<sPoint>* set : mainset) {
-//        if (!(*set1 * *set)->isEmpty()) {
-//            *set1 += *set;
-//        }
-//    }
+/**
+ * @brief removal of sets of points which is less than the minimum value
+ * @param setsOfPoints
+ */
+void filterSets(silhouettes& setsOfPoints) {
+    double totalPoints = 0;
+    for (silhouette item : setsOfPoints) {
+        totalPoints += item.size();
+    }
+    double minSize = (totalPoints / setsOfPoints.size()) * LIMIT;
 
-//    printset(mainset, image);
-    cout << "count = " << mainset.size() << endl;
+    setsOfPoints.remove_if([minSize](silhouette& p) { return  p.size() < minSize;});
+}
+
+int main() {
+    GWindow gw;
+    GBufferedImage* image = processImage(gw, "images/silhouette.jpg");
+
+    Grid<bool> grid(image->getHeight(), image->getWidth(), 0);
+    fillGrid(grid, image);
+
+    silhouettes setsOfPoints;
+    groupPoints(grid, setsOfPoints);
+
+    filterSets(setsOfPoints);
+
+    cout << "found silhouettes - " << setsOfPoints.size() << endl;
+
     delete image;
-
     return 0;
 }
