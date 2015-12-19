@@ -13,6 +13,8 @@
 #include <set>
 
 #include <queue>
+#include "customQueue.h"
+#include "customVector.h"
 #include <list>
 
 
@@ -42,8 +44,8 @@ class sPoint {
 };
 
 
-typedef list< Vector<sPoint> > silhouettes;
-typedef Vector<sPoint> silhouette;
+typedef list< CustomVector<sPoint> > silhouettes;
+typedef CustomVector<sPoint> silhouette;
 
 /**
  * @brief       check point color
@@ -67,7 +69,7 @@ bool isBlack(GBufferedImage* image, double x, double y) {
  * @param grid
  */
 void checkPoint(sPoint p, silhouettes& setsOfPoints, Grid<bool>& grid ) {
-    queue<sPoint> q;
+    CustomQueue<sPoint> q;
     q.push(p);
     silhouette set;
 
@@ -151,7 +153,7 @@ void filterSets(silhouettes& setsOfPoints) {
 
 int main() {
     GWindow gw;
-    GBufferedImage* image = processImage(gw, "images/silhouette.jpg");
+    GBufferedImage* image = processImage(gw, "images/silhouette3.jpg");
 
     Grid<bool> grid(image->getHeight(), image->getWidth(), 0);
     fillGrid(grid, image);
